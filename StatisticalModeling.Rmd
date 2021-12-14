@@ -28,8 +28,9 @@ library(emmeans)
 The title of my research is "Test Marketing and Sales Revenue". My motivation for choosing this topic is that I’ve learned and gained substantial knowledge about A/B testing and test markets through my courses and studies in advertising, so I was interested in exploring the actual relationship between different test market promotions and whether that greatly affects sales.
 
 The main goals of my study are to find whether the type of promotion, age of a store, or market size affect sales revenue generated from test marketing. Specifically, I want to determine which of those variables is the most important to look at when executing test marketing promotions. The population of interest are fast-food restaurants. The stakeholders include consumers of fast-food, advertisers and marketers, marketing analysts, and restaurant businesses. The two research questions I will attempt to answer are: 
-- 1. Is there a difference in the mean sales revenue generated based on which of the three promotions was tested? 
-- 2. Can the sales revenue generated be significantly explained by market size, age of store, or types of promotion?
+
+1. Is there a difference in the mean sales revenue generated based on which of the three          promotions was tested? 
+2. Can the sales revenue generated be significantly explained by market size, age of store,       or types of promotion?
 
 ## Data Collection
 I did not collect my own data for this project. I found an interesting dataset on Kaggle that I found relevant to the research and analysis I wanted to do. The dataset includes data from a fast food chain’s different test markets and the sales revenue generated in each based on three different advertising promotions tested.
