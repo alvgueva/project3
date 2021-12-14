@@ -1,0 +1,280 @@
+---
+title: "Statistical Modeling, Regression Analysis, and Data Visualization"
+author: "SDS324E"
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+  pdf_document:
+    toc: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Call libraries here if needed
+library(tidyverse)
+library(psych)
+library(emmeans)
+```
+
+## Alvaro Guevara ag58974
+
+------------------------------------------------------------------------
+
+## Introduction
+The title of my research is "Test Marketing and Sales Revenue". My motivation for choosing this topic is that I’ve learned and gained substantial knowledge about A/B testing and test markets through my courses and studies in advertising, so I was interested in exploring the actual relationship between different test market promotions and whether that greatly affects sales.
+
+The main goals of my study are to find whether the type of promotion, age of a store, or market size affect sales revenue generated from test marketing. Specifically, I want to determine which of those variables is the most important to look at when executing test marketing promotions. The population of interest are fast-food restaurants. The stakeholders include consumers of fast-food, advertisers and marketers, marketing analysts, and restaurant businesses. The two research questions I will attempt to answer are: 
+- 1. Is there a difference in the mean sales revenue generated based on which of the three promotions was tested? 
+- 2. Can the sales revenue generated be significantly explained by market size, age of store, or types of promotion?
+
+## Data Collection
+I did not collect my own data for this project. I found an interesting dataset on Kaggle that I found relevant to the research and analysis I wanted to do. The dataset includes data from a fast food chain’s different test markets and the sales revenue generated in each based on three different advertising promotions tested.
+I did not have any missing data or any inconsistencies in the dataset. I removed two variables (‘MarketID’ and ‘weeks’) from the original dataset since I was not going to use them in my analysis. I also renamed variables in the dataset to one word. Using the ‘locationID’ variable, I found that the sample size is 137 fast food stores which represent all 548 observations/rows. This makes sense since each store has sales revenue data from 4 weeks of promotion.
+
+```{r}
+#Import dataset
+marketing_campaign <- read.csv("MarketingCampaign.csv")
+
+marketing_campaign <- marketing_campaign %>% select(-1)
+
+marketing_campaign <- marketing_campaign %>% select(-5)
+
+# Move 'locationID' column to the first column
+marketing_campaign <- marketing_campaign %>% select(LocationID, everything())
+
+# Rename variables
+marketing_campaign <- rename(marketing_campaign, Size = MarketSize)
+marketing_campaign <- rename(marketing_campaign, Age = AgeOfStore)
+marketing_campaign <- rename(marketing_campaign, Sales = SalesInThousands)
+
+# Glimpse at updated dataset
+glimpse(marketing_campaign)
+
+# Determine sample size
+n_distinct(marketing_campaign$LocationID)
+```
+
+
+## Descriptive Analysis
+#### Response variable:
+```{r}
+# Sales summary statistics (mean, standard deviation, median, minimum, and maximum) 
+marketing_campaign %>% summarize(mean_Sales=mean(Sales), sd_Sales=sd(Sales), median_Sales=median(Sales), min_Sales=min(Sales), max_Sales=max(Sales))
+# Histogram of sales revenue
+marketing_campaign %>% ggplot() + geom_histogram(aes(Sales), bins=15) + 
+  ggtitle("Histogram of Sales Revenue") + xlab("Sales (In Thousands)")
+```
+
+The shape of the distribution seems to be bimodal. The highest peak seems to be at a little    below 50 thousand.
+
+#### Explanatory variables:
+```{r}
+# Summary statistics for Size variable
+marketing_campaign %>% group_by(Size) %>% summarize(count=n()) %>%
+  mutate(freq = count / sum(count))
+# Bar chart for Size variable
+marketing_campaign %>% ggplot() + geom_bar(aes(Size)) + 
+  ggtitle("Bar Chart of Market Sizes")
+```
+
+Most of the test marketing was done at store locations in a medium market size. Followed by   locations in a large market size, and very few at locations in a small market size.
+
+```{r}
+# Summary statistics for Age variable
+marketing_campaign %>% summarize(mean_Age=mean(Age), median_Age=median(Age), sd_Age=sd(Age), range_Age=range(Age))
+
+# Histogram of Age variable
+marketing_campaign %>% ggplot() + geom_histogram(aes(Age), bins=15) + 
+  ggtitle("Histogram of Store Location Age") + xlab("Age (In Years)")
+```
+
+The shape of the distribution seems to be right skewed. This means that most store locations   have opened and been operating more recently rather than having been established already       for a long time in their respective markets.
+
+```{r}
+# Summary statistics for Promotion variable
+marketing_campaign %>% group_by(Promotion) %>% summarize(count=n()) %>%
+  mutate(freq = count / sum(count))
+
+# Bar chart for Promotion variable
+marketing_campaign %>% ggplot() + geom_bar(aes(Promotion)) + 
+  ggtitle("Bar Chart of Promotions")
+```
+
+Promotions 2 and 3 have equal counts and seem to have been tested more than promotion 1.
+
+
+#### Investigating pairwise relationships with the response using a scatterplot/correlation matrix:
+```{r}
+# Correlation matrix for explanatory variables and response variable
+pairs.panels(marketing_campaign[c("Sales","Size","Age","Promotion")],
+             method = "pearson", # correlation coefficient method
+             hist.col = "blue", # color of histogram 
+             smooth = FALSE, density = FALSE, ellipses = FALSE) # do not show extra information
+```
+
+Age and Promotion seem to have a weak negative correlation with Sales. Size seems to have a moderate weak correlation with Sales. Looking at the three explanatory variables, they all seem to have a weak positive correlation with each other.
+
+
+## Results
+#### ANOVA
+I conducted an ANOVA in order to answer my first research question which asks if there is a difference in mean sales revenue based on which type of promotion was tested. It was appropriate to use this statistical test since I was focusing on analyzing the difference between means on more than two groups of data (promotion 1, 2, and 3).
+
+Before conducting an ANOVA, I used the dataset and a boxplot to check the assumptions for ANOVA. The assumptions for ANOVA were that the sample data was random for each store location with independent observations, and the boxplot distributions of sales revenue were approximately normal with approximately equal variances between the three types of promotion. 
+(Boxplot in Appendix B)
+
+Null Hypothesis: The mean amount of sales revenue does not differ based on the type of the promotion.
+
+Alternative Hypothesis: The mean amount of sales revenue does differ based on the type of the promotion.
+
+```{r}
+# Define ANOVA model
+my_model <- lm(Sales ~ as.factor(Promotion), data = marketing_campaign)
+anova(my_model)
+# Calculate R-squared for one-way ANOVA
+summary(my_model)$r.squared
+```
+
+We reject the null hypothesis since according to these results, there is a statistically highly significant difference in mean amount of sales revenue across the three types of the promotion. (F = 21.953, df = (2,545), p < 0.001).
+
+An adjusted r-squared of 0.0746 means that the three types of promotion explains 7.46% of the variation in sales revenue.
+
+Since ANOVA results were significant, I went ahead and ran a post-hoc analysis to find which pairs of groups had different means.
+
+##### Post-hoc Analysis
+```{r}
+# Post-hoc comparisons
+emmeans(my_model, pairwise ~ as.factor(Promotion))
+```
+
+From these results we can see that our pairwise comparisons are statistically significant for promotions 1 and 2 (p < 0.001), as well as promotions 2 and 3 (p < 0.001). Meaning that the mean sales revenue differs between promotions 1 and 2, and promotions 2 and 3. Pairwise comparisons for promotions 1 and 3 do not seem to be statistically significant (p = 0.24), meaning that the mean sales revenue does not differ between promotions 1 and 3.
+
+#### Multiple Regression Model
+I built a multiple regression model in order to answer my second research question about whether sales revenue generated could be significantly explained by market size, age of store, or promotion. It was appropriate to use a multiple regression model since I wanted to find if each of the explanatory variables had a significant relationship with the response variable while holding the other variables constant.
+
+I checked relevant assumptions before building a multiple regression model using a residual plot and Q-Q plot. The linearity, independence, equal variance, and normality assumptions were all met. (Residual plot and Q-Q plot in Appendix B)
+
+Null Hypothesis 1: Controlling for size and promotion, the age of a store does not explain variation in sales revenue generated in the marketing campaign.
+Alternative Hypothesis 1: Controlling for size and promotion, the age of a store does explain variation in sales revenue generated in the marketing campaign.
+
+Null Hypothesis 2: Controlling for age and promotion, market sizes do not explain variation in sales revenue generated in the marketing campaign.
+Alternative Hypothesis 2: Controlling for age and promotion, market sizes do explain variation in sales revenue generated in the marketing campaign.
+
+Null Hypothesis 3: Controlling for age and size, the three type of promotions do not explain variation in sales revenue generated in the marketing campaign.
+Alternative Hypothesis 3: Controlling for age and size, the three type of promotions do explain variation in sales revenue generated in the marketing campaign.
+
+```{r}
+# Define our multiple regression model
+my_mlr <- lm(Sales ~ Age + Size + as.factor(Promotion), data = marketing_campaign)
+
+# View results of the multiple regression model
+summary(my_mlr)
+
+# Adjusted R-squared
+summary(my_mlr)$adj.r.squared
+```
+
+We fail to reject null hypothesis 1. We reject null hypothesis 2 since sales revenue decreases by 26.63 dollars (in thousands) on average for store locations in medium market sizes compared to large market sizes, while holding all other variables constant. Sales revenue also decreases by 14.07 dollars (in thousands) on average for store locations in small market sizes compared to large market sizes, while holding all other variables constant. We reject null hypothesis 3 since sales revenue decreases by 10.75 dollars (in thousands) on average for store locations using promotion 2 compared to promotion 1, while holding all other variables constant.
+
+A medium market size is a significant predictor of sales revenue (t=-25.47, df = 542, 
+p < 0.001), while holding all other variables constant. 
+A small market size is a significant predictor of sales revenue (t=-8.47, df = 542, 
+p < 0.001), while holding all other variables constant.
+Promotion 2 is a significant predictor of sales revenue (t=-9.36, df = 542, 
+p < 0.001), while holding all other variables constant.
+
+An adjusted r-squared of 0.578 means that about 57.8% of the variation in sales revenue generated is explained by the linear combination of store location age, size of test market area, and the three types of promotions.
+
+
+## Discussion
+#### Research Question 1: 
+Is there a difference in the mean sales revenue generated based on which of the three promotions was tested? 
+
+Yes, from the ANOVA results we can determine that there is a difference in the mean sales revenue generated based on the types of promotion tested. Specifically, there is a difference in the mean sales revenue between promotions 1 and 2, and promotions 2 and 3.
+
+#### Research Question 2: 
+Can the sales revenue generated be significantly explained by market size, age of store, or types of promotion?
+
+Sales revenue generated can be significantly explained by market size and promotion, but not by age of store. Two of the three market sizes, medium and small, are significant predictors of sales revenue. One of the three promotions, promotion 2, is also a significant predictor of sales revenue.
+
+#### Limitations
+Some possible limitations from my study include that this study is focused on only one fast-food chain's test marketing results. There are many other underlying factors specific to this fast-food chain that could have contributed to the results we got, such as reputation of this fast-food chain and its specific store locations, customer service, and favorability towards the fast-food chain. Another limitation is that only 4 weeks of sales revenue generated from each store location was recorded in the dataset, which could have possibly been too short of a period to really determine any relationship between all the explanatory variables and the amount of sales.  
+
+#### Consequences/Implications
+Some consequences from my research include the possibility of restaurant businesses being influenced to go ahead and try out test marketing their products/promotions. By seeing which different factors affect sales revenue the most, restaurant businesses could save money by test marketing first and then expanding their products/promotions. One implication could involve advertisers and marketers using this research in a test marketing situation where their clients need help deciding which market size would lead to significant relationships with their sales goals. This research could also influence marketing analysts to help the businesses they work for determine what main variable(s) to think about and emphasize in their strategy for their next test marketing efforts.  
+
+#### Future Research
+Future research into test marketing data could be done by research companies working for similar restaurant business clients who could add other variables for their research not included in the dataset I used for my research. This could include sales by year, description of what type of product or content was tested in the market, and even number of restaurant visitors during time of test marketing compared to time of non-test marketing to find if the number of visitors actually increased or decreased. This would allow a thorough investigation of many relationships which could be beneficial in the advertising/marketing industries. 
+For my multiple regression model I chose to focus on each predictor while controlling for the others. Therefore, If I conducted my research again I would investigate the interaction and main effects between the predictors to see new relationships which could also be significant enough to provide new insights, consequences and implications.
+
+------------------------------------------------------------------------
+
+## References
+Link to original dataset: 
+https://www.kaggle.com/chebotinaa/fast-food-marketing-campaign-ab-test?select=WA_Marketing-Campaign.csv
+
+Articles used for my research:
+
+- 10 reasons why businesses enjoy the benefits of test marketing. QuestionPro. (2019, December 10). Retrieved November 22, 2021, from https://www.questionpro.com/blog/how-businesses-benefit-test-marketing/. 
+
+- Bhasin, H. (2020, March 8). Test Marketing - Introduction, Benefits And Disadvantages. Marketing91. Retrieved November 20, 2021, from https://www.marketing91.com/test-marketing/. 
+
+- Cadbury, N. D. (2014, August 1). When, Where, and How to Test Market. Harvard Business Review. Retrieved November 16, 2021, from https://hbr.org/1975/05/when-where-and-how-to-test-market. 
+
+- Middlebrook, S. B. (2012, December 22). Basics of Product Test Marketing. ToughNickel. Retrieved November 20, 2021, from https://toughnickel.com/industries/Product-Test-Marketing. 
+
+R Handouts/Resources:
+
+- Conducting an independent t-test or ANOVA, RMarkdown: GA3.html
+
+- Building a Multiple Regression model with Categorical Predictors and Interactions: GA4.html
+
+- Multiple Regression in R: http://www.sthda.com/english/articles/40-regression-analysis/168-multiple-linear-regression-in-r/
+
+
+\newpage
+
+
+## Appendix A: Code Book
++----------+-----------------------------+-----------+-----------------+
+| Variable | Description                 | Type      | Range/Values    |
++==========+=============================+===========+=================+
+| Size     | Size of test market area    |Categorical|Small/Medium/Large|
++----------+-----------------------------+-----------+-----------------+
+| Age      | Store location age in years | Numeric   |1-28             |
++----------+-----------------------------+-----------+-----------------+
+| Promotion| 1 of 3 promotions tested    |Categorical|1/2/3            |
++----------+-----------------------------+-----------+-----------------+
+| Sales    | Sales revenue in thousands  |Numeric    |17.34-99.65      |
++----------+-----------------------------+-----------+-----------------+
+
+### Appendix B:
+#### Assumptions for ANOVA 
+```{r}
+#Compare distribution of sales between three promotions
+boxplot(marketing_campaign$Sales ~ marketing_campaign$Promotion,
+        xlab='Promotions',
+        ylab='Sales (In Thousands)', 
+        main='Distribution of Sales Revenue Per Promotion',
+        col=c('light blue', 'light green', 'light pink'))
+```
+
+The assumptions are met for conducting the test since the distributions appear to be approximately symmetric, meaning that there aren't any deviations from normality. There is no deviation from equal variances either, but there are a few outliers present.
+
+
+#### Assumptions for Multiple Regression Model
+```{r}
+# Specify 'Age' as factor before using residual plot
+my_mlr <- lm(Sales ~ as.factor(Age) + as.factor(Size) + as.factor(Promotion), data = marketing_campaign)
+
+# Confirm linearity and equal variance with a residual plot
+plot(my_mlr, which = 1)
+
+# Confirm normality with a Q-Q plot
+plot(my_mlr, which = 2)
+```
+
+The residual plot does not show any violation of the linearity assumption or of the equal variance assumption. All points seem to be independent of each other. The Q-Q plot shows that the normality assumption is approximately met.
