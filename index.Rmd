@@ -1,6 +1,6 @@
 ---
 title: "Statistical Modeling, Regression Analysis, and Data Visualization"
-author: "SDS324E"
+author: "Alvaro Guevara"
 output:
   html_document:
     toc: yes
@@ -20,7 +20,7 @@ library(psych)
 library(emmeans)
 ```
 
-## Alvaro Guevara ag58974
+## Test Marketing and Sales Revenue
 
 ------------------------------------------------------------------------
 
