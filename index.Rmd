@@ -20,7 +20,7 @@ library(psych)
 library(emmeans)
 ```
 
-## Test Marketing and Sales Revenue
+# Test Marketing and Sales Revenue
 
 ------------------------------------------------------------------------
 
